@@ -29,11 +29,7 @@ contract Campaign is Initializable {
 
     event CampaignLive();
 
-    event MilestoneProposed(
-        uint256 indexed id,
-        string proofCid,
-        uint256 amount
-    );
+    event MilestoneProposed(uint256 indexed id, string proofCid, uint256 amount);
 
     function initialize(
         address _creator,
@@ -66,15 +62,11 @@ contract Campaign is Initializable {
         escrow.deposit(amount);
     }
 
-    function proposeMilestone(string calldata proofCid, uint amount) external {
+    function proposeMilestone(string calldata proofCid, uint256 amount) external {
         require(msg.sender == creator, "Only Creator");
         require(isLive, "Not Live");
         escrow.proposeMilestone(proofCid, amount);
-        emit MilestoneProposed(
-            escrow.getMilestoneCount() - 1,
-            proofCid,
-            amount
-        );
+        emit MilestoneProposed(escrow.getMilestoneCount() - 1, proofCid, amount);
     }
 
     function releaseMilestone(uint256 id) external {

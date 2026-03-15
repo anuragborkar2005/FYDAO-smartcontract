@@ -49,12 +49,7 @@ contract CampaignFlowTest is Test {
         proposers[0] = address(0);
         executors[0] = address(0);
 
-        timelock = new TimelockController(
-            TIMELOCK_DELAY,
-            proposers,
-            executors,
-            msg.sender
-        );
+        timelock = new TimelockController(TIMELOCK_DELAY, proposers, executors, msg.sender);
         governor = new DAOGovernor(IVotes(address(rep)), timelock);
 
         vm.startPrank(msg.sender);
@@ -63,18 +58,11 @@ contract CampaignFlowTest is Test {
         vm.stopPrank();
 
         Campaign impl = new Campaign();
-        factory = new CampaignFactory(
-            address(impl),
-            address(governor),
-            address(timelock)
-        );
+        factory = new CampaignFactory(address(impl), address(governor), address(timelock));
 
         vm.prank(creator);
-        (address campAddr, address escAddr) = factory.createCampaign(
-            address(usdc),
-            "ipfs://QmExampleCampaignMetadata",
-            92
-        );
+        (address campAddr, address escAddr) =
+            factory.createCampaign(address(usdc), "ipfs://QmExampleCampaignMetadata", 92);
 
         campaign = Campaign(campAddr);
         escrow = MilestoneEscrow(escAddr);
@@ -124,8 +112,7 @@ contract CampaignFlowTest is Test {
         vm.prank(creator);
         campaign.proposeMilestone(proofCid, milestoneAmount);
 
-        (string memory savedCid, uint256 savedAmt, bool released) = escrow
-            .getMilestone(0);
+        (string memory savedCid, uint256 savedAmt, bool released) = escrow.getMilestone(0);
         assertEq(savedCid, proofCid);
         assertEq(savedAmt, milestoneAmount);
         assertFalse(released);
@@ -149,7 +136,7 @@ contract CampaignFlowTest is Test {
         vm.roll(block.number + 1);
         governor.execute(targets, values, calldatas, descHash);
 
-        (, , released) = escrow.getMilestone(0);
+        (,, released) = escrow.getMilestone(0);
         assertTrue(released);
         assertEq(usdc.balanceOf(creator), milestoneAmount);
         assertEq(usdc.balanceOf(address(escrow)), donation - milestoneAmount);

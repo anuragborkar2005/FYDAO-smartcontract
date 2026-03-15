@@ -9,7 +9,9 @@ import {GovernorSettings} from "@openzeppelin/contracts/governance/extensions/Go
 import {GovernorStorage} from "@openzeppelin/contracts/governance/extensions/GovernorStorage.sol";
 import {GovernorTimelockControl} from "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 import {GovernorVotes} from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
-import {GovernorVotesQuorumFraction} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
+import {
+    GovernorVotesQuorumFraction
+} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
 contract DAOGovernor is
@@ -21,60 +23,44 @@ contract DAOGovernor is
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
 {
-    constructor(
-        IVotes _token,
-        TimelockController _timelock
-    )
+    constructor(IVotes _token, TimelockController _timelock)
         Governor("MyGovernor")
-        GovernorSettings(7200 /* 1 day */, 50400 /* 1 week */, 0)
+        GovernorSettings(
+            7200,
+            /* 1 day */
+            50400,
+            /* 1 week */
+            0
+        )
         GovernorVotes(_token)
         GovernorVotesQuorumFraction(4)
         GovernorTimelockControl(_timelock)
     {}
 
-    function votingDelay()
-        public
-        view
-        override(Governor, GovernorSettings)
-        returns (uint256)
-    {
+    function votingDelay() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.votingDelay(); //1 Day
     }
 
-    function votingPeriod()
-        public
-        view
-        override(Governor, GovernorSettings)
-        returns (uint256)
-    {
+    function votingPeriod() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.votingPeriod(); // 1 Week
     }
 
-    function proposalThreshold()
-        public
-        pure
-        override(Governor, GovernorSettings)
-        returns (uint256)
-    {
+    function proposalThreshold() public pure override(Governor, GovernorSettings) returns (uint256) {
         return 0;
     }
 
     // The following functions are overrides required by Solidity.
 
-    function state(
-        uint256 proposalId
-    )
-        public
-        view
-        override(Governor, GovernorTimelockControl)
-        returns (ProposalState)
-    {
+    function state(uint256 proposalId) public view override(Governor, GovernorTimelockControl) returns (ProposalState) {
         return super.state(proposalId);
     }
 
-    function proposalNeedsQueuing(
-        uint256 proposalId
-    ) public view override(Governor, GovernorTimelockControl) returns (bool) {
+    function proposalNeedsQueuing(uint256 proposalId)
+        public
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (bool)
+    {
         return super.proposalNeedsQueuing(proposalId);
     }
 
@@ -94,8 +80,7 @@ contract DAOGovernor is
         string memory description,
         address proposer
     ) internal override(Governor, GovernorStorage) returns (uint256) {
-        return
-            super._propose(targets, values, calldatas, description, proposer);
+        return super._propose(targets, values, calldatas, description, proposer);
     }
 
     function _queueOperations(
@@ -105,14 +90,7 @@ contract DAOGovernor is
         bytes[] memory calldatas,
         bytes32 descriptionHash
     ) internal override(Governor, GovernorTimelockControl) returns (uint48) {
-        return
-            super._queueOperations(
-                proposalId,
-                targets,
-                values,
-                calldatas,
-                descriptionHash
-            );
+        return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
     function _executeOperations(
@@ -122,13 +100,7 @@ contract DAOGovernor is
         bytes[] memory calldatas,
         bytes32 descriptionHash
     ) internal override(Governor, GovernorTimelockControl) {
-        super._executeOperations(
-            proposalId,
-            targets,
-            values,
-            calldatas,
-            descriptionHash
-        );
+        super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
     function _cancel(
@@ -140,12 +112,7 @@ contract DAOGovernor is
         return super._cancel(targets, values, calldatas, descriptionHash);
     }
 
-    function _executor()
-        internal
-        view
-        override(Governor, GovernorTimelockControl)
-        returns (address)
-    {
+    function _executor() internal view override(Governor, GovernorTimelockControl) returns (address) {
         return super._executor();
     }
 }

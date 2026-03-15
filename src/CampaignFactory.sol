@@ -17,21 +17,21 @@ contract CampaignFactory {
         timelock = _timelock;
     }
 
-    function createCampaign(
-        address stablecoin,
-        string calldata metadataCid,
-        uint256 trustScore
-    ) external returns (address campaignAddr, address escAddr) {
+    function createCampaign(address stablecoin, string calldata metadataCid, uint256 trustScore)
+        external
+        returns (address campaignAddr, address escAddr)
+    {
         address campaign = Clones.clone(IMPLEMENTATION);
 
-        Campaign(campaign).initialize(
-            msg.sender, // creator
-            governor, // governor
-            stablecoin, // stablecoin
-            metadataCid, // metadataCid
-            timelock, // timelock
-            trustScore // trustScore
-        );
+        Campaign(campaign)
+            .initialize(
+                msg.sender, // creator
+                governor, // governor
+                stablecoin, // stablecoin
+                metadataCid, // metadataCid
+                timelock, // timelock
+                trustScore // trustScore
+            );
         escAddr = address(Campaign(campaign).escrow());
         emit CampaignCreated(campaign, escAddr, msg.sender);
         return (campaign, escAddr);

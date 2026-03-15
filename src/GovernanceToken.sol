@@ -10,18 +10,8 @@ import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Vo
 import {ERC20Wrapper} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Wrapper.sol";
 import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 
-contract GovernanceToken is
-    ERC20,
-    ERC20Burnable,
-    Ownable,
-    ERC20Permit,
-    ERC20Votes,
-    ERC20Wrapper
-{
-    constructor(
-        address initialOwner,
-        IERC20 wrappedToken
-    )
+contract GovernanceToken is ERC20, ERC20Burnable, Ownable, ERC20Permit, ERC20Votes, ERC20Wrapper {
+    constructor(address initialOwner, IERC20 wrappedToken)
         ERC20("GovernanceToken", "GTK")
         Ownable(initialOwner)
         ERC20Permit("GovernanceToken")
@@ -32,28 +22,17 @@ contract GovernanceToken is
         _mint(to, amount);
     }
 
-    function decimals()
-        public
-        view
-        override(ERC20, ERC20Wrapper)
-        returns (uint8)
-    {
+    function decimals() public view override(ERC20, ERC20Wrapper) returns (uint8) {
         return super.decimals();
     }
 
     // The following functions are overrides required by Solidity.
 
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    ) internal override(ERC20, ERC20Votes) {
+    function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Votes) {
         super._update(from, to, value);
     }
 
-    function nonces(
-        address owner
-    ) public view override(ERC20Permit, Nonces) returns (uint256) {
+    function nonces(address owner) public view override(ERC20Permit, Nonces) returns (uint256) {
         return super.nonces(owner);
     }
 }

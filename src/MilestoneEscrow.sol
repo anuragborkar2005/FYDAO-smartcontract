@@ -25,11 +25,7 @@ contract MilestoneEscrow is ReentrancyGuard, Ownable {
     Milestone[] public milestones;
 
     event Deposited(address indexed donor, uint256 amount);
-    event MilestoneProposed(
-        uint256 indexed id,
-        string proofCid,
-        uint256 amount
-    );
+    event MilestoneProposed(uint256 indexed id, string proofCid, uint256 amount);
     event MilestoneReleased(uint256 indexed id, uint256 amount, address to);
 
     modifier onlyGovernor() {
@@ -41,11 +37,7 @@ contract MilestoneEscrow is ReentrancyGuard, Ownable {
         require(msg.sender == address(GOVERNOR), "Only governor can call");
     }
 
-    constructor(
-        address _token,
-        address _creator,
-        address _governor
-    ) Ownable(msg.sender) {
+    constructor(address _token, address _creator, address _governor) Ownable(msg.sender) {
         TOKEN = IERC20(_token);
         CAMPAIGN_CREATOR = _creator;
         GOVERNOR = _governor;
@@ -60,34 +52,21 @@ contract MilestoneEscrow is ReentrancyGuard, Ownable {
     }
 
     // Creator proposes a milestone (can be called multiple times)
-    function proposeMilestone(
-        string calldata proofCid,
-        uint256 amount
-    ) external onlyOwner {
+    function proposeMilestone(string calldata proofCid, uint256 amount) external onlyOwner {
         require(amount > 0, "Amount must be > 0");
-        require(
-            totalDeposited >= totalReleased + amount,
-            "Not enough funds deposited"
-        );
+        require(totalDeposited >= totalReleased + amount, "Not enough funds deposited");
 
-        milestones.push(
-            Milestone({proofCid: proofCid, amount: amount, released: false})
-        );
+        milestones.push(Milestone({proofCid: proofCid, amount: amount, released: false}));
 
         emit MilestoneProposed(milestones.length - 1, proofCid, amount);
     }
 
     // Called by DAO Governor after successful vote
-    function releaseMilestone(
-        uint256 milestoneId
-    ) external onlyOwner nonReentrant {
+    function releaseMilestone(uint256 milestoneId) external onlyOwner nonReentrant {
         require(milestoneId < milestones.length, "Invalid milestone ID");
         Milestone storage milestone = milestones[milestoneId];
         require(!milestone.released, "Already released");
-        require(
-            TOKEN.balanceOf(address(this)) >= milestone.amount,
-            "Insufficient balance"
-        );
+        require(TOKEN.balanceOf(address(this)) >= milestone.amount, "Insufficient balance");
 
         milestone.released = true;
         totalReleased += milestone.amount;
@@ -102,25 +81,14 @@ contract MilestoneEscrow is ReentrancyGuard, Ownable {
         return milestones.length;
     }
 
-    function getMilestone(
-        uint256 id
-    )
-        external
-        view
-        returns (string memory proofCid, uint256 amount, bool released)
-    {
+    function getMilestone(uint256 id) external view returns (string memory proofCid, uint256 amount, bool released) {
         Milestone memory m = milestones[id];
         return (m.proofCid, m.amount, m.released);
     }
 
     // Emergency withdraw remaining funds by governor (only if needed - governance decision)
-    function emergencyWithdraw(
-        uint256 amount
-    ) external onlyGovernor nonReentrant {
-        require(
-            TOKEN.balanceOf(address(this)) >= amount,
-            "Insufficient balance"
-        );
+    function emergencyWithdraw(uint256 amount) external onlyGovernor nonReentrant {
+        require(TOKEN.balanceOf(address(this)) >= amount, "Insufficient balance");
         TOKEN.safeTransfer(GOVERNOR, amount); // send to DAO timelock / treasury
     }
 }
