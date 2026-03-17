@@ -49,7 +49,12 @@ contract CampaignFlowTest is Test {
         proposers[0] = address(0);
         executors[0] = address(0);
 
-        timelock = new TimelockController(TIMELOCK_DELAY, proposers, executors, msg.sender);
+        timelock = new TimelockController(
+            TIMELOCK_DELAY,
+            proposers,
+            executors,
+            msg.sender
+        );
         governor = new DAOGovernor(IVotes(address(rep)), timelock);
 
         vm.startPrank(msg.sender);
@@ -58,11 +63,18 @@ contract CampaignFlowTest is Test {
         vm.stopPrank();
 
         Campaign impl = new Campaign();
-        factory = new CampaignFactory(address(impl), address(governor), address(timelock));
+        factory = new CampaignFactory(
+            address(impl),
+            address(governor),
+            address(timelock)
+        );
 
         vm.prank(creator);
-        (address campAddr, address escAddr) =
-            factory.createCampaign(address(usdc), "ipfs://QmExampleCampaignMetadata", 92);
+        (address campAddr, address escAddr) = factory.createCampaign(
+            address(usdc),
+            "ipfs://QmExampleCampaignMetadata",
+            92
+        );
 
         campaign = Campaign(campAddr);
         escrow = MilestoneEscrow(escAddr);
@@ -77,6 +89,7 @@ contract CampaignFlowTest is Test {
         values[0] = 0;
         calldatas[0] = abi.encodeWithSignature("approveAndGoLive()");
         string memory desc = "Approve emergency medical campaign #123";
+        bytes32 descHash = keccak256(bytes(desc));
 
         uint256 proposalId = governor.propose(targets, values, calldatas, desc);
 
@@ -87,12 +100,17 @@ contract CampaignFlowTest is Test {
         // Move past voting period (Succeeded)
         vm.roll(governor.proposalDeadline(proposalId) + 1);
 
-        bytes32 descHash = keccak256(bytes(desc));
+        //Check state before Queue (Should be 4 for Succeeded)
+        assertEq(
+            uint(governor.state(proposalId)),
+            4,
+            "Proposal should be suceeded"
+        );
         governor.queue(targets, values, calldatas, descHash);
 
-        // Move past timelock delay
-        skip(TIMELOCK_DELAY + 1);
-        vm.roll(block.number + 1);
+        uint eta = governor.proposalEta(proposalId);
+        vm.warp(eta + 1);
+        vm.roll(block.number + 10);
         governor.execute(targets, values, calldatas, descHash);
 
         assertTrue(campaign.isLive(), "Campaign should be live");
@@ -112,7 +130,8 @@ contract CampaignFlowTest is Test {
         vm.prank(creator);
         campaign.proposeMilestone(proofCid, milestoneAmount);
 
-        (string memory savedCid, uint256 savedAmt, bool released) = escrow.getMilestone(0);
+        (string memory savedCid, uint256 savedAmt, bool released) = escrow
+            .getMilestone(0);
         assertEq(savedCid, proofCid);
         assertEq(savedAmt, milestoneAmount);
         assertFalse(released);
@@ -132,11 +151,12 @@ contract CampaignFlowTest is Test {
         descHash = keccak256(bytes(desc));
         governor.queue(targets, values, calldatas, descHash);
 
-        skip(TIMELOCK_DELAY + 1);
+        eta = governor.proposalEta(proposalId);
+        vm.warp(eta + 1);
         vm.roll(block.number + 1);
         governor.execute(targets, values, calldatas, descHash);
 
-        (,, released) = escrow.getMilestone(0);
+        (, , released) = escrow.getMilestone(0);
         assertTrue(released);
         assertEq(usdc.balanceOf(creator), milestoneAmount);
         assertEq(usdc.balanceOf(address(escrow)), donation - milestoneAmount);
