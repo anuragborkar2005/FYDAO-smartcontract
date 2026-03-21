@@ -11,7 +11,7 @@ import {Campaign} from "../src/Campaign.sol";
 import {CampaignFactory} from "../src/CampaignFactory.sol";
 import {MockUSDC} from "../src/MockUSDC.sol";
 
-contract Deploy is Script {
+contract DAODeploy is Script {
     function run() external {
         vm.startBroadcast();
 
@@ -24,7 +24,12 @@ contract Deploy is Script {
         // 3. Timelock (min delay 0 for testing)
         address[] memory proposers = new address[](0);
         address[] memory executors = new address[](0);
-        TimelockController timelock = new TimelockController(0 days, proposers, executors, msg.sender);
+        TimelockController timelock = new TimelockController(
+            0 days,
+            proposers,
+            executors,
+            msg.sender
+        );
 
         // 4. DAO Governor
         DAOGovernor governor = new DAOGovernor(IVotes(address(tkn)), timelock);
@@ -36,7 +41,11 @@ contract Deploy is Script {
 
         // 5. Campaign Implementation + Factory
         Campaign campaignImpl = new Campaign();
-        CampaignFactory factory = new CampaignFactory(address(campaignImpl), address(governor), address(timelock));
+        CampaignFactory factory = new CampaignFactory(
+            address(campaignImpl),
+            address(governor),
+            address(timelock)
+        );
 
         // Give deployer some governance tokens for testing
         tkn.mint(msg.sender, 10_000 ether);
