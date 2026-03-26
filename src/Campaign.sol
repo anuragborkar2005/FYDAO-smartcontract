@@ -74,5 +74,9 @@ contract Campaign is Initializable {
         escrow.releaseMilestone(id);
     }
 
+    function raised() external view returns (uint256) {
+        return escrow.totalDeposited();
+    }
+
     // TODO: For hybrid voting — add donor-weighted functions here later
 }

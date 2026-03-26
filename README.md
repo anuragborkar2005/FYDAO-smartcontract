@@ -87,6 +87,31 @@ An ERC20 token that tracks voting power.
 
 ---
 
+## 🏛 How the DAO Works
+
+The DAO is the central governing body of the fundraising platform. It ensures that every campaign is legitimate and that funds are only released when milestones are genuinely achieved.
+
+### 1. Governance Token (`GTK`)
+The `GovernanceToken` is the key to participating in the DAO.
+- **Voting Power**: It uses `ERC20Votes` to track voting power, preventing flash loan attacks by using historical snapshots.
+- **Acquisition**: Users can acquire GTK by wrapping a designated underlying token (like USDC or a platform-specific token) or through manual distribution by the DAO owner.
+- **Delegation**: Token holders can delegate their voting power to themselves or others using the `delegate` or `permit` (gasless) functions.
+
+### 2. Proposal Lifecycle
+Any significant action (like approving a campaign or releasing funds) must go through a formal proposal process in the `DAOGovernor` contract:
+1.  **Creation**: A proposal is submitted to the DAO with specific contract calls (e.g., `Campaign.approveAndGoLive()`).
+2.  **Voting Delay (1 Day)**: A cooling-off period before voting begins, allowing token holders to review the proposal.
+3.  **Voting Period (1 Week)**: Token holders cast their votes (For, Against, or Abstain).
+4.  **Quorum & Success**: A proposal succeeds if it reaches a 4% quorum and receives more "For" votes than "Against" votes.
+5.  **Queueing & Execution**: Successful proposals are queued in the `TimelockController` and executed after a mandatory delay, ensuring extra security.
+
+### 3. Key Governance Roles
+- **Proposers**: Anyone with voting power (proposal threshold is 0) can submit a proposal.
+- **Voters**: Every `GTK` holder can participate in the decision-making process.
+- **Executor**: The `TimelockController` is the only address authorized to call sensitive functions in the `Campaign` and `MilestoneEscrow` contracts.
+
+---
+
 ## 🔄 Platform Workflow
 
 ### Phase 1: Campaign Creation
