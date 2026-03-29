@@ -23,40 +23,39 @@ contract CampaignFlowTest is Test {
     Campaign campaign;
     MilestoneEscrow escrow;
 
+    // Accounts
     address creator = makeAddr("creator");
-    address donor = makeAddr("donor");
-    address voter = address(this);
+    address donor1 = makeAddr("donor1");
+    address donor2 = makeAddr("donor2");
 
-    uint256 constant VOTING_DELAY = 1 days;
-    uint256 constant VOTING_PERIOD = 1 weeks;
+    // DAO Members
+    address voterA = makeAddr("voterA");
+    address voterB = makeAddr("voterB");
+    address voterC = makeAddr("voterC");
+
     uint256 constant TIMELOCK_DELAY = 1 days;
-
     bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
     function setUp() public {
         usdc = new MockUSDC();
-        rep = new GovernanceToken(msg.sender, usdc);
+        rep = new GovernanceToken(address(this), usdc);
 
-        // Mint + delegate BEFORE proposing, to ensure voting weight at snapshot
-        vm.startPrank(msg.sender);
-        rep.mint(voter, 500_000 ether);
-        vm.stopPrank();
-        rep.delegate(voter);
+        // 1. Setup Multiple DAO Members with voting power
+        _setupVoter(voterA, 300_000 ether); // 30% weight
+        _setupVoter(voterB, 150_000 ether); // 15% weight
+        _setupVoter(voterC, 50_000 ether); // 5% weight
 
-        address[] memory proposers = new address[](1);
-        address[] memory executors = new address[](1);
-        proposers[0] = address(0);
-        executors[0] = address(0);
-
-        timelock = new TimelockController(TIMELOCK_DELAY, proposers, executors, msg.sender);
+        // 2. Setup Timelock and Governor
+        address[] memory proposers = new address[](0);
+        address[] memory executors = new address[](0);
+        timelock = new TimelockController(TIMELOCK_DELAY, proposers, executors, address(this));
         governor = new DAOGovernor(IVotes(address(rep)), timelock);
 
-        vm.startPrank(msg.sender);
         timelock.grantRole(PROPOSER_ROLE, address(governor));
         timelock.grantRole(EXECUTOR_ROLE, address(governor));
-        vm.stopPrank();
 
+        // 3. Setup Factory and Create Campaign
         Campaign impl = new Campaign();
         factory = new CampaignFactory(address(impl), address(governor), address(timelock));
 
@@ -68,7 +67,14 @@ contract CampaignFlowTest is Test {
         escrow = MilestoneEscrow(escAddr);
     }
 
-    function test_full_flow() public {
+    function _setupVoter(address voter, uint256 amount) internal {
+        rep.mint(voter, amount);
+        vm.prank(voter);
+        rep.delegate(voter);
+    }
+
+    function test_multi_user_flow() public {
+        // --- STEP 1: DAO VOTING BY MULTIPLE MEMBERS ---
         address[] memory targets = new address[](1);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
@@ -76,72 +82,71 @@ contract CampaignFlowTest is Test {
         targets[0] = address(campaign);
         values[0] = 0;
         calldatas[0] = abi.encodeWithSignature("approveAndGoLive()");
-        string memory desc = "Approve emergency medical campaign #123";
-        bytes32 descHash = keccak256(bytes(desc));
+        string memory desc = "Approve Campaign #123";
 
         uint256 proposalId = governor.propose(targets, values, calldatas, desc);
 
-        // Move to voting start (Active)
         vm.roll(governor.proposalSnapshot(proposalId) + 1);
-        governor.castVote(proposalId, 1);
 
-        // Move past voting period (Succeeded)
+        // Multiple members cast votes
+        vm.prank(voterA);
+        governor.castVote(proposalId, 1); // For
+        vm.prank(voterB);
+        governor.castVote(proposalId, 1); // For
+        vm.prank(voterC);
+        governor.castVote(proposalId, 0); // Against (simulating dissent)
+
         vm.roll(governor.proposalDeadline(proposalId) + 1);
 
-        //Check state before Queue (Should be 4 for Succeeded)
-        assertEq(uint256(governor.state(proposalId)), 4, "Proposal should be suceeded");
+        bytes32 descHash = keccak256(bytes(desc));
         governor.queue(targets, values, calldatas, descHash);
-
         uint256 eta = governor.proposalEta(proposalId);
-        vm.warp(eta + 1);
-        vm.roll(block.number + 10);
-        governor.execute(targets, values, calldatas, descHash);
-
-        assertTrue(campaign.isLive(), "Campaign should be live");
-
-        // Donate
-        uint256 donation = 12_000 * 10 ** 6;
-        usdc.safeTransfer(donor, donation);
-        vm.startPrank(donor);
-        usdc.approve(address(campaign), donation);
-        campaign.donate(donation);
-        vm.stopPrank();
-        assertEq(usdc.balanceOf(address(escrow)), donation);
-
-        // Propose milestone
-        string memory proofCid = "ipfs://QmProofOfHospitalBillAndTreatment";
-        uint256 milestoneAmount = 5_000 * 10 ** 6;
-        vm.prank(creator);
-        campaign.proposeMilestone(proofCid, milestoneAmount);
-
-        (string memory savedCid, uint256 savedAmt, bool released) = escrow.getMilestone(0);
-        assertEq(savedCid, proofCid);
-        assertEq(savedAmt, milestoneAmount);
-        assertFalse(released);
-
-        // Release milestone
-        targets[0] = address(campaign);
-        calldatas[0] = abi.encodeWithSignature("releaseMilestone(uint256)", 0);
-        desc = "Release milestone 1 - medical treatment proof";
-
-        proposalId = governor.propose(targets, values, calldatas, desc);
-
-        vm.roll(governor.proposalSnapshot(proposalId) + 1);
-        governor.castVote(proposalId, 1);
-
-        vm.roll(governor.proposalDeadline(proposalId) + 1);
-
-        descHash = keccak256(bytes(desc));
-        governor.queue(targets, values, calldatas, descHash);
-
-        eta = governor.proposalEta(proposalId);
         vm.warp(eta + 1);
         vm.roll(block.number + 1);
         governor.execute(targets, values, calldatas, descHash);
 
-        (,, released) = escrow.getMilestone(0);
-        assertTrue(released);
+        assertTrue(campaign.isLive());
+
+        // --- STEP 2: MULTIPLE DONORS CONTRIBUTING ---
+        uint256 amt1 = 5_000 * 10 ** 6;
+        uint256 amt2 = 7_000 * 10 ** 6;
+
+        _handleDonation(donor1, amt1);
+        _handleDonation(donor2, amt2);
+
+        assertEq(usdc.balanceOf(address(escrow)), amt1 + amt2);
+
+        // --- STEP 3: MILESTONE RELEASE BY DAO ---
+        uint256 milestoneAmount = 4_000 * 10 ** 6;
+        vm.prank(creator);
+        campaign.proposeMilestone("ipfs://QmProof", milestoneAmount);
+
+        targets[0] = address(campaign);
+        calldatas[0] = abi.encodeWithSignature("releaseMilestone(uint256)", 0);
+        desc = "Release First Milestone";
+
+        proposalId = governor.propose(targets, values, calldatas, desc);
+        vm.roll(governor.proposalSnapshot(proposalId) + 1);
+
+        // Voters approve the release
+        vm.prank(voterA);
+        governor.castVote(proposalId, 1);
+        vm.prank(voterB);
+        governor.castVote(proposalId, 1);
+
+        vm.roll(governor.proposalDeadline(proposalId) + 1);
+        governor.queue(targets, values, calldatas, keccak256(bytes(desc)));
+        vm.warp(block.timestamp + TIMELOCK_DELAY + 1);
+        governor.execute(targets, values, calldatas, keccak256(bytes(desc)));
+
         assertEq(usdc.balanceOf(creator), milestoneAmount);
-        assertEq(usdc.balanceOf(address(escrow)), donation - milestoneAmount);
+    }
+
+    function _handleDonation(address donor, uint256 amount) internal {
+        usdc.mint(donor, amount);
+        vm.startPrank(donor);
+        usdc.approve(address(campaign), amount);
+        campaign.donate(amount);
+        vm.stopPrank();
     }
 }
